@@ -172,3 +172,6 @@ docs/_templates/
 .cache-dir/
 .temp-dir/
 .tmp-dir/
+
+# IDE/编辑器特定目录
+.trae/
