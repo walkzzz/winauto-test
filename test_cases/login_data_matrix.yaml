@@ -11,11 +11,34 @@ base_config:
   priority: "P0"
   # 公共配置 - 避免重复定义
   common:
-    exec_path: "D:/Program Files/CBIM/modulelogin.exe"
-    window_class: "LoginDialog"
-    login_button_text: "登 录Button"
-    username_field: "Edit0"
-    password_field: "Edit2"
+    # 应用路径配置 
+    exec_path: "D:/Program Files/CBIM/modulelogin.exe" 
+    
+    # 窗口配置 
+    window_class: "Dialog"                    # 窗口类型为Dialog 
+    window_title: "modulelogin"               # 窗口标题 
+    
+    # 登录控件配置 - 基于pywinauto控件树提取 
+    username_field: 
+      parent: "ComboBox"                      # 用户名在ComboBox内 
+      best_match: "Edit0"                     # 第一个Edit控件 
+      print_id: "Edit - '75145'"              # 用于日志识别的标识 
+    
+    password_field: 
+      best_match: "Edit2"                     # 第三个Edit控件（密码框） 
+      print_id: "Edit - ''"                   # 空标题的Edit控件 
+    
+    login_button_text: "登 录Button"          # 登录按钮的完整标识 
+    login_button_title: "登 录"               # 登录按钮显示文本 
+    
+    # 附加功能控件（用于扩展测试） 
+    remember_password_checkbox: "记住密码"    # 记住密码复选框 
+    find_password_button: "找回密码Button"    # 找回密码按钮 
+    register_button: "在线注册Button"         # 在线注册按钮 
+    
+    # 控件路径常量（基于.md文件中的层次结构） 
+    parent_group: "GroupBox2"                 # 登录表单所在的GroupBox 
+    message_box_class: "QMessageBox"          # 消息弹窗类名（根据预期结果推断）
 
 # 数据矩阵 - 每个条目表示一个测试场景
 # 包含输入参数、预期结果和边界条件
@@ -318,7 +341,7 @@ step_templates:
     - action: "by_index"
       params:
         parent: "$login_win"
-        best_match: "{{base_config.common.username_field}}"
+        best_match: "{{base_config.common.username_field.best_match}}"
       save_as: "account_edit"
     
     - action: "clear_text"
@@ -335,7 +358,7 @@ step_templates:
     - action: "by_index"
       params:
         parent: "$login_win"
-        best_match: "{{base_config.common.password_field}}"
+        best_match: "{{base_config.common.password_field.best_match}}"
       save_as: "password_edit"
     
     - action: "clear_text"
