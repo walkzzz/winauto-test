@@ -1,0 +1,20 @@
+# 核心功能：Windows UI 自动化
+pywinauto==0.6.8
+
+# 测试框架
+pytest==7.4.3
+pytest-html==4.1.1          # HTML 报告生成
+
+# Allure 报告（更美观，可选）
+allure-pytest==2.13.2
+allure-python-commons==2.13.2
+
+# YAML 解析
+PyYAML==6.0.1
+
+# 截图和图像处理
+Pillow==10.1.0
+
+# 类型提示支持（可选，提升代码质量）
+typing-extensions==4.8.0
+

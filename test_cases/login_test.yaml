@@ -1,0 +1,65 @@
+test_suite: "登录模块测试"
+test_cases:
+  - case_id: "LOGIN_001"
+    case_name: "正常登录"
+    description: "测试用户使用正确的用户名和密码登录系统"
+    feature: "登录功能"
+    story: "用户认证"
+    epic: "登录测试"
+    priority: "P0"
+    severity: "blocker"
+    tags: ["login", "smoke"]
+    steps:
+      - action: "start"
+        params:
+          exec_path: "D:/Program Files/CBIM/modulelogin.exe"
+      
+      - action: "get_window"
+        params:
+          class_name: "LoginDialog"
+        save_as: "login_win"
+      
+      - action: "by_index"
+        params:
+          parent: "$login_win"
+          best_match: "Edit0"
+        save_as: "account_edit"
+      
+      - action: "input_text"
+        params:
+          ctrl: "$account_edit"
+          text: "13165"
+      
+      - action: "by_index"
+        params:
+          parent: "$login_win"
+          best_match: "Edit2"
+        save_as: "password_edit"
+      
+      - action: "input_text"
+        params:
+          ctrl: "$password_edit"
+          text: "1"
+      
+      - action: "screenshot"
+        params:
+          target: "$login_win"
+          filename: "reports/login_success.png"
+          allure_attach: true
+          allure_name: "登录前截图"
+
+      - action: "by_index"
+        params:
+          parent: "$login_win"
+          best_match: "登 录Button"
+        save_as: "login_btn"
+      
+      - action: "click_ctrl"
+        params:
+          ctrl: "$login_btn"
+    
+    expected:
+      - action: "get_window"
+        params:
+          class_name: "LOGINMainWindow"
+        timeout: 10

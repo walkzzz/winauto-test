@@ -1,0 +1,38 @@
+# Python虚拟环境
+.venv/
+env/
+
+# Python编译文件
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# 测试报告
+test_report.html
+reports/
+
+# 日志文件
+*.log
+
+# IDE配置文件
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 临时文件
+*.tmp
+*.temp
+
+# 认证文件
+*.pem
+*.key
+*.crt
+
+# 缓存文件
+.cache/

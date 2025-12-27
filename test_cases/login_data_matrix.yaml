@@ -1,0 +1,417 @@
+# 登录测试数据矩阵
+# 数据矩阵格式：包含测试用例的所有必要参数、预期结果和边界条件
+# 支持参数化测试，每个测试场景作为一个独立的测试用例执行
+
+# 基础配置
+base_config:
+  test_suite: "登录模块测试"
+  feature: "登录功能"
+  story: "用户认证"
+  epic: "登录测试"
+  priority: "P0"
+  # 公共配置 - 避免重复定义
+  common:
+    exec_path: "D:/Program Files/CBIM/modulelogin.exe"
+    window_class: "LoginDialog"
+    login_button_text: "登 录Button"
+    username_field: "Edit0"
+    password_field: "Edit2"
+
+# 数据矩阵 - 每个条目表示一个测试场景
+# 包含输入参数、预期结果和边界条件
+data_matrix:
+  # ==================== 正向场景 ====================
+  - case_id: "LOGIN_001"
+    case_name: "正常登录 - 正确用户名和密码"
+    description: "验证使用有效的用户名和密码能够成功登录系统"
+    severity: "blocker"
+    tags: ["login", "smoke", "positive", "critical_path"]
+    input_params:
+      username: "13165"
+      password: "1"
+    expected_results:
+      window_validation:
+        action: "get_window"
+        params:
+          class_name: "LOGINMainWindow"
+        timeout: 10
+        should_exist: true
+      login_success: true
+      status_code: 200
+    boundary_conditions:
+      category: "valid_credentials"
+      data_type: "valid"
+      expectation: "success"
+
+  # ==================== 负向场景 - 空值验证 ====================
+  - case_id: "LOGIN_002"
+    case_name: "登录失败 - 空用户名"
+    description: "验证用户名为空时系统能正确提示错误信息"
+    severity: "critical"
+    tags: ["login", "negative", "empty_validation", "username"]
+    input_params:
+      username: ""
+      password: "1"
+    expected_results:
+      error_message:
+        window:
+          action: "get_window"
+          params:
+            class_name: "QMessageBox"
+          timeout: 5
+          save_as: "msg_box"
+        label:
+          action: "by_index"
+          params:
+            parent: "$msg_box"
+            best_match: "QLabel"
+          save_as: "msg_label"
+        text:
+          action: "get_text"
+          params:
+            ctrl: "$msg_label"
+          expected_value: "账户和密码不能为空！"
+      login_success: false
+      status_code: 400
+    boundary_conditions:
+      category: "empty_validation"
+      data_type: "invalid"
+      empty_field: "username"
+      expected_behavior: "inline_validation"
+
+  - case_id: "LOGIN_003"
+    case_name: "登录失败 - 空密码"
+    description: "验证密码为空时系统能正确提示错误信息"
+    severity: "critical"
+    tags: ["login", "negative", "empty_validation", "password"]
+    input_params:
+      username: "13165"
+      password: ""
+    expected_results:
+      error_message:
+        text: "账户和密码不能为空！"
+      login_success: false
+      status_code: 400
+    boundary_conditions:
+      category: "empty_validation"
+      data_type: "invalid"
+      empty_field: "password"
+      expected_behavior: "inline_validation"
+
+  - case_id: "LOGIN_004"
+    case_name: "登录失败 - 用户名和密码均为空"
+    description: "验证用户名和密码同时为空时的错误处理"
+    severity: "critical"
+    tags: ["login", "negative", "empty_validation"]
+    input_params:
+      username: ""
+      password: ""
+    expected_results:
+      error_message:
+        text: "账户和密码不能为空！"
+      login_success: false
+      status_code: 400
+    boundary_conditions:
+      category: "empty_validation"
+      data_type: "invalid"
+      empty_field: "both"
+      expected_behavior: "inline_validation"
+
+  # ==================== 负向场景 - 错误凭证 ====================
+  - case_id: "LOGIN_005"
+    case_name: "登录失败 - 错误密码"
+    description: "验证使用错误密码登录时系统拒绝访问并给出适当提示"
+    severity: "critical"
+    tags: ["login", "negative", "wrong_credentials", "password"]
+    input_params:
+      username: "13165"
+      password: "wrong_password_123"
+    expected_results:
+      error_message:
+        text: ["密码错误", "用户名或密码错误", "认证失败"]  # 支持多种可能的错误文本
+      login_success: false
+      status_code: 401
+      window_remains: "LoginDialog"  # 登录窗口应保持打开
+    boundary_conditions:
+      category: "wrong_credentials"
+      data_type: "invalid"
+      invalid_field: "password"
+      security_check: "no_account_lockout"  # 单次失败不应锁定账户
+
+  - case_id: "LOGIN_006"
+    case_name: "登录失败 - 错误用户名"
+    description: "验证使用不存在的用户名登录时系统拒绝访问"
+    severity: "critical"
+    tags: ["login", "negative", "wrong_credentials", "username"]
+    input_params:
+      username: "nonexistent_user"
+      password: "1"
+    expected_results:
+      error_message:
+        text: ["用户名不存在", "用户名或密码错误", "认证失败"]
+      login_success: false
+      status_code: 401
+      window_remains: "LoginDialog"
+    boundary_conditions:
+      category: "wrong_credentials"
+      data_type: "invalid"
+      invalid_field: "username"
+      security_check: "generic_error_message"  # 不应明确提示"用户名不存在"
+
+  - case_id: "LOGIN_007"
+    case_name: "登录失败 - 用户名和密码均错误"
+    description: "验证用户名和密码同时错误时的安全响应"
+    severity: "high"
+    tags: ["login", "negative", "wrong_credentials"]
+    input_params:
+      username: "wrong_user"
+      password: "wrong_password"
+    expected_results:
+      error_message:
+        text: "用户名或密码错误"  # 安全考虑，不应区分是用户名还是密码错误
+      login_success: false
+      status_code: 401
+      window_remains: "LoginDialog"
+    boundary_conditions:
+      category: "wrong_credentials"
+      data_type: "invalid"
+      invalid_field: "both"
+      security_check: "ambiguous_error_message"
+
+  # ==================== 边界值测试 ====================
+  - case_id: "LOGIN_008"
+    case_name: "边界测试 - 最短用户名"
+    description: "验证系统接受最短允许长度的用户名"
+    severity: "medium"
+    tags: ["login", "boundary", "positive"]
+    input_params:
+      username: "1"  # 假设最小长度为1
+      password: "1"
+    expected_results:
+      login_success: true
+      status_code: 200
+    boundary_conditions:
+      category: "boundary_value"
+      boundary_type: "min"
+      field: "username"
+      limit_value: 1
+
+  - case_id: "LOGIN_009"
+    case_name: "边界测试 - 最长用户名"
+    description: "验证系统处理最大长度用户名的能力"
+    severity: "medium"
+    tags: ["login", "boundary", "negative"]
+    input_params:
+      username: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"  # 50个a
+      password: "1"
+    expected_results:
+      error_message:
+        text: ["用户名长度超限", "输入无效"]
+      login_success: false
+      status_code: 400
+    boundary_conditions:
+      category: "boundary_value"
+      boundary_type: "max_exceeded"
+      field: "username"
+      limit_value: 50
+
+  # ==================== 安全测试 ====================
+  - case_id: "LOGIN_010"
+    case_name: "安全测试 - SQL注入尝试"
+    description: "验证系统能防御SQL注入攻击"
+    severity: "critical"
+    tags: ["login", "security", "sql_injection", "negative"]
+    input_params:
+      username: "admin' OR '1'='1"
+      password: "password"
+    expected_results:
+      error_message:
+        text: ["用户名或密码错误", "非法输入"]
+      login_success: false
+      status_code: 401
+      window_remains: "LoginDialog"
+    boundary_conditions:
+      category: "security_test"
+      test_type: "sql_injection"
+      expected_behavior: "sanitize_input"
+
+  - case_id: "LOGIN_011"
+    case_name: "安全测试 - XSS尝试"
+    description: "验证系统能防御跨站脚本攻击"
+    severity: "critical"
+    tags: ["login", "security", "xss", "negative"]
+    input_params:
+      username: "<script>alert('xss')</script>"
+      password: "password"
+    expected_results:
+      error_message:
+        text: ["用户名或密码错误", "非法字符"]
+      login_success: false
+      status_code: 400
+      # 验证脚本未被原样输出
+      script_not_executed: true
+    boundary_conditions:
+      category: "security_test"
+      test_type: "xss"
+      expected_behavior: "escape_special_chars"
+
+  - case_id: "LOGIN_012"
+    case_name: "安全测试 - 账户锁定机制"
+    description: "验证连续失败登录后账户锁定功能"
+    severity: "high"
+    tags: ["login", "security", "account_lockout", "negative"]
+    input_params:
+      username: "13165"
+      password: "wrong_password"
+      attempts: 5  # 假设5次失败后锁定
+    expected_results:
+      after_attempts:
+        error_message:
+          text: ["账户已锁定", "尝试次数过多"]
+        login_success: false
+        status_code: 403
+        account_locked: true
+    boundary_conditions:
+      category: "security_test"
+      test_type: "account_lockout"
+      lockout_threshold: 5
+      expected_behavior: "temporary_lock"
+
+  # ==================== 兼容性测试 ====================
+  - case_id: "LOGIN_013"
+    case_name: "兼容性测试 - 特殊字符用户名"
+    description: "验证系统处理包含特殊字符的用户名"
+    severity: "medium"
+    tags: ["login", "compatibility", "special_chars", "negative"]
+    input_params:
+      username: "user@123#test"
+      password: "1"
+    expected_results:
+      error_message:
+        text: ["用户名或密码错误", "非法字符"]
+      login_success: false
+      status_code: 400
+    boundary_conditions:
+      category: "compatibility"
+      test_type: "special_characters"
+      allowed_chars: "alphanumeric_only"
+
+# 测试步骤模板 - 用于生成测试用例的步骤
+# 可以根据需要扩展不同的步骤模板
+step_templates:
+  # 标准登录流程模板
+  login_flow:
+    - action: "start"
+      params:
+        exec_path: "{{base_config.common.exec_path}}"
+        timeout: 10
+        allure_attach: true
+        allure_name: "打开登录窗口_{{case_id}}"
+    
+    - action: "get_window"
+      params:
+        class_name: "{{base_config.common.window_class}}"
+        timeout: 5
+      save_as: "login_win"
+      on_failure: "attach_screenshot"
+    
+    - action: "by_index"
+      params:
+        parent: "$login_win"
+        best_match: "{{base_config.common.username_field}}"
+      save_as: "account_edit"
+    
+    - action: "clear_text"
+      params:
+        ctrl: "$account_edit"
+    
+    - action: "input_text"
+      params:
+        ctrl: "$account_edit"
+        text: "{{input_params.username}}"
+        allure_attach: true
+        allure_name: "输入用户名_{{case_id}}"
+    
+    - action: "by_index"
+      params:
+        parent: "$login_win"
+        best_match: "{{base_config.common.password_field}}"
+      save_as: "password_edit"
+    
+    - action: "clear_text"
+      params:
+        ctrl: "$password_edit"
+    
+    - action: "input_text"
+      params:
+        ctrl: "$password_edit"
+        text: "{{input_params.password}}"
+        allure_attach: true
+        allure_name: "输入密码_{{case_id}}"
+
+    - action: "screenshot"
+      params:
+        target: "$login_win"
+        filename: "reports/login_before_{{case_id}}.png"
+        allure_attach: true
+        allure_name: "登录前状态_{{case_id}}"
+    
+    - action: "by_index"
+      params:
+        parent: "$login_win"
+        best_match: "{{base_config.common.login_button_text}}"
+      save_as: "login_btn"
+    
+    - action: "click_ctrl"
+      params:
+        ctrl: "$login_btn"
+        allure_attach: true
+        allure_name: "执行登录操作_{{case_id}}"
+      
+    # 根据用例类型执行不同的验证步骤
+    - action: "validate_result"
+      params:
+        expected: "{{expected_results}}"
+        case_type: "{{boundary_conditions.category}}"
+
+  # 错误消息验证专用模板
+  error_validation_flow:
+    - action: "get_window"
+      params:
+        class_name: "QMessageBox"
+      timeout: 5
+      save_as: "msg_box"
+      optional: true  # 某些错误可能在页面上直接显示
+    
+    - action: "by_index"
+      params:
+        parent: "$msg_box"
+        best_match: "QLabel"
+      save_as: "msg_label"
+    
+    - action: "get_text"
+      params:
+        ctrl: "$msg_label"
+      save_as: "actual_error"
+    
+    - action: "assert"
+      params:
+        condition: "actual_error in expected_results.error_message.text"
+        on_failure: "log_error_and_screenshot"
+
+# 验证规则配置
+validation_rules:
+  retry_mechanism:
+    enabled: true
+    max_retries: 2
+    retry_delay: 1  # 秒
+    
+  timeout_config:
+    element_wait: 5
+    page_load: 10
+    script_timeout: 30
+    
+  screenshot_policy:
+    on_failure: true
+    on_assertion: true
+    path_template: "reports/screenshots/{{case_id}}_{{timestamp}}.png"
