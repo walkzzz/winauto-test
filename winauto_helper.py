@@ -201,7 +201,7 @@ class WinAuto:
     - 测试流程的自动化
     
     示例：
-    >>> bot = WinAuto(r"D:\Program Files\YourApp\app.exe")
+    >>> bot = WinAuto(r"D:\\Program Files\\YourApp\\app.exe")
     >>> bot.start()
     >>> login_window = bot.get_window(class_name='LoginDialog')
     >>> # 进行控件操作...
@@ -324,20 +324,43 @@ class WinAuto:
 
                 # 尝试查找目标窗口 - 正确的方法是使用 self.app.window() 而不是 child_window
                 self.logger.info("尝试使用 self.app.window() 查找目标窗口...")
-                if title:
-                    win = self.app.window(title=title)
-                    self.logger.info(f"尝试查找 title='{title}' 的窗口")
-                elif class_name:
-                    win = self.app.window(class_name=class_name)
-                    self.logger.info(f"尝试查找 class_name='{class_name}' 的窗口")
-                else:
-                    win = self.app.window(best_match=best_match)
-                    self.logger.info(f"尝试查找 best_match='{best_match}' 的窗口")
+                try:
+                    if title:
+                        win = self.app.window(title=title)
+                        self.logger.info(f"尝试查找 title='{title}' 的窗口")
+                    elif class_name:
+                        win = self.app.window(class_name=class_name)
+                        self.logger.info(f"尝试查找 class_name='{class_name}' 的窗口")
+                    else:
+                        win = self.app.window(best_match=best_match)
+                        self.logger.info(f"尝试查找 best_match='{best_match}' 的窗口")
 
-                # 检查窗口是否存在
-                if win.exists(timeout=0.5):
-                    self.logger.info("找到目标窗口！")
-                    return win
+                    # 检查窗口是否存在
+                    if win.exists(timeout=0.5):
+                        self.logger.info("找到目标窗口！")
+                        return win
+                except ElementNotFoundError:
+                    self.logger.info("目标窗口不存在，继续等待...")
+                except Exception as e:
+                    # 处理窗口匹配歧义问题
+                    if "There are 2 elements that match" in str(e):
+                        self.logger.warning(f"窗口匹配存在歧义，尝试返回第一个匹配窗口: {e}")
+                        # 使用 find_elements 获取所有匹配窗口，返回第一个
+                        windows = self.app.windows()
+                        for w in windows:
+                            try:
+                                if ((title and title in w.window_text()) or 
+                                    (class_name and class_name == w.class_name()) or 
+                                    (best_match and best_match in str(w))):
+                                    # 转换为 WindowSpecification
+                                    win_spec = self.app.window(handle=w.handle)
+                                    if win_spec.exists(timeout=0.5):
+                                        self.logger.info("已返回第一个匹配的窗口")
+                                        return win_spec
+                            except Exception as ex:
+                                self.logger.debug(f"检查窗口时发生异常: {ex}")
+                    else:
+                        self.logger.warning(f"窗口查找异常: {e}")
                 else:
                     self.logger.info("目标窗口不存在，继续等待...")
             except _PYWIN_EXCEPTIONS as e:
