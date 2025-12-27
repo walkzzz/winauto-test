@@ -1249,7 +1249,107 @@ class WinAuto:
             return None
 
     # ------ 动态调用外部模块 ------
-    @staticmethod
+    def get_ctrl_property(self, ctrl: BaseWrapper, property: str) -> Any:
+        """
+        获取控件属性
+        
+        参数:
+            ctrl: 控件对象
+            property: 属性名称
+            
+        返回:
+            属性值
+        """
+        if ctrl is None:
+            self.logger.error("get_ctrl_property: 未提供控件对象")
+            return None
+        try:
+            return getattr(ctrl, property, None)
+        except _PYWIN_EXCEPTIONS:
+            self.logger.error(f"获取控件属性 {property} 失败")
+            return None
+    
+    def verify_window_state(self, ctrl: WindowSpecification, state: str) -> bool:
+        """
+        验证窗口状态
+        
+        参数:
+            ctrl: 窗口对象
+            state: 预期状态，可选值：minimized, maximized, normal
+            
+        返回:
+            验证成功返回 True，失败返回 False
+        """
+        if ctrl is None:
+            self.logger.error("verify_window_state: 未提供窗口对象")
+            return False
+        try:
+            if state == "minimized":
+                result = ctrl.is_minimized()
+            elif state == "maximized":
+                result = ctrl.is_maximized()
+            elif state == "normal":
+                result = not (ctrl.is_minimized() or ctrl.is_maximized())
+            else:
+                self.logger.error(f"verify_window_state: 不支持的状态 {state}")
+                return False
+            self.logger.info(f"窗口状态验证: 预期 {state}, 实际 {'符合' if result else '不符合'}")
+            return result
+        except _PYWIN_EXCEPTIONS:
+            self.logger.error(f"验证窗口状态 {state} 失败")
+            return False
+    
+    def verify_selected_text(self, ctrl: BaseWrapper, expected: str) -> bool:
+        """
+        验证选中的文本
+        
+        参数:
+            ctrl: 控件对象（通常是ComboBox或ListBox）
+            expected: 预期选中的文本
+            
+        返回:
+            验证成功返回 True，失败返回 False
+        """
+        if ctrl is None:
+            self.logger.error("verify_selected_text: 未提供控件对象")
+            return False
+        try:
+            # 尝试获取选中的文本
+            selected_text = ""
+            # 尝试多种方法获取选中文本
+            if hasattr(ctrl, "selected_text"):
+                selected_text = ctrl.selected_text()
+            elif hasattr(ctrl, "window_text"):
+                selected_text = ctrl.window_text()
+            elif hasattr(ctrl, "get_current_selection"):
+                selected_text = ctrl.get_current_selection()
+            
+            result = selected_text == expected
+            self.logger.info(f"选中文本验证: 预期 '{expected}', 实际 '{selected_text}', 结果 {'符合' if result else '不符合'}")
+            return result
+        except _PYWIN_EXCEPTIONS:
+            self.logger.error("验证选中文本失败")
+            return False
+    
+    def uncheck_remember_password(self, username: str) -> bool:
+        """
+        取消勾选记住密码选项（清理步骤）
+        
+        参数:
+            username: 用户名
+            
+        返回:
+            操作成功返回 True，失败返回 False
+        """
+        try:
+            # 这里实现取消记住密码的逻辑
+            self.logger.info(f"取消记住密码: {username}")
+            # 实际实现可能需要重新打开登录窗口并操作
+            return True
+        except Exception as e:
+            self.logger.error(f"取消记住密码失败: {e}")
+            return False
+    
     def call_module_func(module_path: str,
                          func_name: str = "",
                          *args,

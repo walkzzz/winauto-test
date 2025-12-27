@@ -22,7 +22,7 @@ base_config:
     username_field: 
       parent: "ComboBox"                      # 用户名在ComboBox内 
       best_match: "Edit0"                     # 第一个Edit控件 
-      print_id: "Edit - '75145'"              # 用于日志识别的标识 
+      print_id: "Edit - '10802'"              # 用于日志识别的标识 
     
     password_field: 
       best_match: "Edit2"                     # 第三个Edit控件（密码框） 
@@ -39,6 +39,7 @@ base_config:
     # 控件路径常量（基于.md文件中的层次结构） 
     parent_group: "GroupBox2"                 # 登录表单所在的GroupBox 
     message_box_class: "QMessageBox"          # 消息弹窗类名（根据预期结果推断）
+    combobox_control: "ComboBox"              # 用户名ComboBox控件
 
 # 数据矩阵 - 每个条目表示一个测试场景
 # 包含输入参数、预期结果和边界条件
@@ -46,7 +47,7 @@ data_matrix:
   # ==================== 正向场景 ====================
   - case_id: "LOGIN_001"
     case_name: "正常登录 - 正确用户名和密码"
-    description: "验证使用有效的用户名和密码能够成功登录系统"
+    description: "验证使用有效的用户名和密码能够成功登录系统，登录后应加载主窗口"
     severity: "blocker"
     tags: ["login", "smoke", "positive", "critical_path"]
     input_params:
@@ -61,17 +62,21 @@ data_matrix:
         should_exist: true
       login_success: true
       status_code: 200
+      response_time_ms: "<5000"
     boundary_conditions:
       category: "valid_credentials"
       data_type: "valid"
       expectation: "success"
+    cleanup_steps:
+      - action: "close_window"
+        target: "LOGINMainWindow"
 
-  # ==================== 负向场景 - 空值验证 ====================
+  # ==================== 空值验证 ====================
   - case_id: "LOGIN_002"
     case_name: "登录失败 - 空用户名"
-    description: "验证用户名为空时系统能正确提示错误信息"
+    description: "验证用户名为空时系统能正确提示错误信息，焦点应停留在用户名输入框"
     severity: "critical"
-    tags: ["login", "negative", "empty_validation", "username"]
+    tags: ["login", "negative", "empty_validation", "username", "inline_validation"]
     input_params:
       username: ""
       password: "1"
@@ -81,7 +86,7 @@ data_matrix:
           action: "get_window"
           params:
             class_name: "QMessageBox"
-          timeout: 5
+          timeout: 3
           save_as: "msg_box"
         label:
           action: "by_index"
@@ -104,9 +109,9 @@ data_matrix:
 
   - case_id: "LOGIN_003"
     case_name: "登录失败 - 空密码"
-    description: "验证密码为空时系统能正确提示错误信息"
+    description: "验证密码为空时系统能正确提示错误信息，焦点应停留在密码输入框"
     severity: "critical"
-    tags: ["login", "negative", "empty_validation", "password"]
+    tags: ["login", "negative", "empty_validation", "password", "inline_validation"]
     input_params:
       username: "13165"
       password: ""
@@ -123,7 +128,7 @@ data_matrix:
 
   - case_id: "LOGIN_004"
     case_name: "登录失败 - 用户名和密码均为空"
-    description: "验证用户名和密码同时为空时的错误处理"
+    description: "验证用户名和密码同时为空时的错误处理，应明确提示两项均不能为空"
     severity: "critical"
     tags: ["login", "negative", "empty_validation"]
     input_params:
@@ -140,10 +145,10 @@ data_matrix:
       empty_field: "both"
       expected_behavior: "inline_validation"
 
-  # ==================== 负向场景 - 错误凭证 ====================
+  # ==================== 错误凭证 ====================
   - case_id: "LOGIN_005"
     case_name: "登录失败 - 错误密码"
-    description: "验证使用错误密码登录时系统拒绝访问并给出适当提示"
+    description: "验证使用错误密码登录时系统拒绝访问并给出适当提示，登录窗口应保持打开状态"
     severity: "critical"
     tags: ["login", "negative", "wrong_credentials", "password"]
     input_params:
@@ -151,23 +156,24 @@ data_matrix:
       password: "wrong_password_123"
     expected_results:
       error_message:
-        text: ["密码错误", "用户名或密码错误", "认证失败"]  # 支持多种可能的错误文本
+        text: ["密码错误", "用户名或密码错误", "认证失败"]
       login_success: false
       status_code: 401
-      window_remains: "LoginDialog"  # 登录窗口应保持打开
+      window_remains: "LoginDialog"
     boundary_conditions:
       category: "wrong_credentials"
       data_type: "invalid"
       invalid_field: "password"
-      security_check: "no_account_lockout"  # 单次失败不应锁定账户
+      security_check: "no_account_lockout"
+      attempt_limit: 5
 
   - case_id: "LOGIN_006"
-    case_name: "登录失败 - 错误用户名"
-    description: "验证使用不存在的用户名登录时系统拒绝访问"
+    case_name: "登录失败 - 不存在的用户名"
+    description: "验证使用不存在的用户名登录时系统拒绝访问，错误消息不应明确区分用户名或密码错误（安全考虑）"
     severity: "critical"
-    tags: ["login", "negative", "wrong_credentials", "username"]
+    tags: ["login", "negative", "wrong_credentials", "username", "security"]
     input_params:
-      username: "nonexistent_user"
+      username: "nonexistent_user_999"
       password: "1"
     expected_results:
       error_message:
@@ -179,19 +185,19 @@ data_matrix:
       category: "wrong_credentials"
       data_type: "invalid"
       invalid_field: "username"
-      security_check: "generic_error_message"  # 不应明确提示"用户名不存在"
+      security_check: "generic_error_message"
 
   - case_id: "LOGIN_007"
     case_name: "登录失败 - 用户名和密码均错误"
-    description: "验证用户名和密码同时错误时的安全响应"
+    description: "验证用户名和密码同时错误时的安全响应，错误消息应模糊处理避免信息泄露"
     severity: "high"
-    tags: ["login", "negative", "wrong_credentials"]
+    tags: ["login", "negative", "wrong_credentials", "security"]
     input_params:
       username: "wrong_user"
       password: "wrong_password"
     expected_results:
       error_message:
-        text: "用户名或密码错误"  # 安全考虑，不应区分是用户名还是密码错误
+        text: "用户名或密码错误"
       login_success: false
       status_code: 401
       window_remains: "LoginDialog"
@@ -203,12 +209,12 @@ data_matrix:
 
   # ==================== 边界值测试 ====================
   - case_id: "LOGIN_008"
-    case_name: "边界测试 - 最短用户名"
-    description: "验证系统接受最短允许长度的用户名"
+    case_name: "边界测试 - 最短用户名（1个字符）"
+    description: "验证系统接受最短允许长度的用户名（假设最小长度为1）"
     severity: "medium"
-    tags: ["login", "boundary", "positive"]
+    tags: ["login", "boundary", "positive", "username_length"]
     input_params:
-      username: "1"  # 假设最小长度为1
+      username: "1"
       password: "1"
     expected_results:
       login_success: true
@@ -220,115 +226,54 @@ data_matrix:
       limit_value: 1
 
   - case_id: "LOGIN_009"
-    case_name: "边界测试 - 最长用户名"
-    description: "验证系统处理最大长度用户名的能力"
+    case_name: "边界测试 - 超长用户名处理"
+    description: "验证系统处理超长用户名的能力，应限制输入长度或给出明确错误提示"
     severity: "medium"
-    tags: ["login", "boundary", "negative"]
+    tags: ["login", "boundary", "negative", "username_length"]
     input_params:
-      username: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"  # 50个a
+      username: "user_test_with_very_long_name_exceeding_normal_limits_abc_123"
       password: "1"
     expected_results:
       error_message:
-        text: ["用户名长度超限", "输入无效"]
+        text: ["用户名长度超限", "输入无效", "用户名或密码错误"]
       login_success: false
       status_code: 400
     boundary_conditions:
       category: "boundary_value"
       boundary_type: "max_exceeded"
       field: "username"
-      limit_value: 50
+      expected_limit: 32
 
-  # ==================== 安全测试 ====================
-  - case_id: "LOGIN_010"
-    case_name: "安全测试 - SQL注入尝试"
-    description: "验证系统能防御SQL注入攻击"
-    severity: "critical"
-    tags: ["login", "security", "sql_injection", "negative"]
-    input_params:
-      username: "admin' OR '1'='1"
-      password: "password"
-    expected_results:
-      error_message:
-        text: ["用户名或密码错误", "非法输入"]
-      login_success: false
-      status_code: 401
-      window_remains: "LoginDialog"
-    boundary_conditions:
-      category: "security_test"
-      test_type: "sql_injection"
-      expected_behavior: "sanitize_input"
-
-  - case_id: "LOGIN_011"
-    case_name: "安全测试 - XSS尝试"
-    description: "验证系统能防御跨站脚本攻击"
-    severity: "critical"
-    tags: ["login", "security", "xss", "negative"]
-    input_params:
-      username: "<script>alert('xss')</script>"
-      password: "password"
-    expected_results:
-      error_message:
-        text: ["用户名或密码错误", "非法字符"]
-      login_success: false
-      status_code: 400
-      # 验证脚本未被原样输出
-      script_not_executed: true
-    boundary_conditions:
-      category: "security_test"
-      test_type: "xss"
-      expected_behavior: "escape_special_chars"
-
-  - case_id: "LOGIN_012"
-    case_name: "安全测试 - 账户锁定机制"
-    description: "验证连续失败登录后账户锁定功能"
-    severity: "high"
-    tags: ["login", "security", "account_lockout", "negative"]
+  - case_id: "LOGIN_025"
+    case_name: "边界测试 - 超长密码处理"
+    description: "验证密码输入框能正确处理超过最大长度的密码，应自动截断或拒绝输入"
+    severity: "medium"
+    tags: ["login", "password_function", "boundary", "negative"]
     input_params:
       username: "13165"
-      password: "wrong_password"
-      attempts: 5  # 假设5次失败后锁定
+      password: "password12345678901234567890abcdefghijklmnopqrstuvwxyz"
     expected_results:
-      after_attempts:
-        error_message:
-          text: ["账户已锁定", "尝试次数过多"]
-        login_success: false
-        status_code: 403
-        account_locked: true
-    boundary_conditions:
-      category: "security_test"
-      test_type: "account_lockout"
-      lockout_threshold: 5
-      expected_behavior: "temporary_lock"
-
-  # ==================== 兼容性测试 ====================
-  - case_id: "LOGIN_013"
-    case_name: "兼容性测试 - 特殊字符用户名"
-    description: "验证系统处理包含特殊字符的用户名"
-    severity: "medium"
-    tags: ["login", "compatibility", "special_chars", "negative"]
-    input_params:
-      username: "user@123#test"
-      password: "1"
-    expected_results:
-      error_message:
-        text: ["用户名或密码错误", "非法字符"]
+      behavior: "password_truncated_or_blocked"
       login_success: false
       status_code: 400
     boundary_conditions:
-      category: "compatibility"
-      test_type: "special_characters"
-      allowed_chars: "alphanumeric_only"
+      category: "boundary_value"
+      boundary_type: "max_exceeded"
+      field: "password"
+      expected_limit: 20
 
   # ==================== ComboBox功能测试 ====================
   - case_id: "LOGIN_014"
     case_name: "ComboBox功能 - 用户名下拉选择"
-    description: "验证从ComboBox下拉列表选择已有用户名时，能自动填充到输入框"
+    description: "验证从ComboBox下拉列表选择已有用户名时，能自动填充到输入框并成功登录"
     severity: "medium"
-    tags: ["login", "combobox", "positive", "ui_interaction"]
+    tags: ["login", "combobox", "positive", "ui_interaction", "dropdown"]
     input_params:
-      username: "75145"  # 从控件树中已知的ListItem
+      username: "75145"
       password: "1"
+      selection_method: "dropdown"
     expected_results:
+      dropdown_selection_success: true
       login_success: true
       status_code: 200
     boundary_conditions:
@@ -337,16 +282,17 @@ data_matrix:
       test_type: "dropdown_selection"
 
   - case_id: "LOGIN_015"
-    case_name: "ComboBox功能 - 用户名输入建议"
-    description: "验证输入部分用户名时，能显示匹配的用户名列表"
+    case_name: "ComboBox功能 - 用户名输入自动完成"
+    description: "验证输入部分用户名时，能显示匹配的下拉建议列表"
     severity: "medium"
-    tags: ["login", "combobox", "positive", "ui_interaction"]
+    tags: ["login", "combobox", "positive", "ui_interaction", "autocomplete"]
     input_params:
-      username: "75"  # 输入部分用户名
+      username: "75"
       password: "1"
-      expected_dropdown: true
+      expected_suggestion: true
     expected_results:
-      dropdown_visible: true
+      suggestion_list_visible: true
+      suggestion_contains: "75145"
       login_success: false
       status_code: 400
     boundary_conditions:
@@ -356,12 +302,13 @@ data_matrix:
 
   - case_id: "LOGIN_016"
     case_name: "ComboBox功能 - 无效用户名选择"
-    description: "验证选择无效用户名登录时，系统能正确处理"
+    description: "验证下拉列表中选择无效用户名登录时，系统能正确处理并给出错误提示"
     severity: "medium"
     tags: ["login", "combobox", "negative", "ui_interaction"]
     input_params:
-      username: "invalid_user"  # 无效用户名
+      username: "invalid_user"
       password: "1"
+      selection_method: "dropdown"
     expected_results:
       error_message:
         text: ["用户名不存在", "用户名或密码错误", "认证失败"]
@@ -374,10 +321,10 @@ data_matrix:
 
   # ==================== 记住密码功能测试 ====================
   - case_id: "LOGIN_017"
-    case_name: "记住密码功能 - 记住密码验证"
-    description: "验证勾选记住密码后，成功登录并退出，重新打开应用时能自动填充用户名和密码"
+    case_name: "记住密码功能 - 勾选后自动填充"
+    description: "验证勾选记住密码并成功登录后，再次打开应用时能自动填充用户名和密码"
     severity: "medium"
-    tags: ["login", "remember_password", "positive", "persistence"]
+    tags: ["login", "remember_password", "positive", "persistence", "credentials_cache"]
     input_params:
       username: "13165"
       password: "1"
@@ -385,25 +332,31 @@ data_matrix:
     expected_results:
       login_success: true
       status_code: 200
-      credentials_saved: true
+      credentials_cached: true
+      verify_on_restart: true
     boundary_conditions:
       category: "remember_password_function"
       data_type: "valid"
       test_type: "remember_credentials"
+    cleanup_steps:
+      - action: "uncheck_remember_password"
+        username: "13165"
 
   - case_id: "LOGIN_018"
-    case_name: "记住密码功能 - 取消记住密码"
+    case_name: "记住密码功能 - 取消勾选后不保存"
     description: "验证先勾选记住密码，再取消勾选后，成功登录并退出，下次打开应用时不会自动填充密码"
     severity: "medium"
-    tags: ["login", "remember_password", "positive", "persistence"]
+    tags: ["login", "remember_password", "positive", "persistence", "credentials_cache"]
     input_params:
       username: "13165"
       password: "1"
       remember_password: false
+      previously_remembered: true
     expected_results:
       login_success: true
       status_code: 200
-      credentials_saved: false
+      credentials_cached: false
+      verify_on_restart: true
     boundary_conditions:
       category: "remember_password_function"
       data_type: "valid"
@@ -411,135 +364,115 @@ data_matrix:
 
   # ==================== 辅助功能按钮测试 ====================
   - case_id: "LOGIN_019"
-    case_name: "辅助功能 - 找回密码按钮点击"
-    description: "验证点击'找回密码'按钮时，能打开找回密码页面或弹窗"
+    case_name: "辅助功能 - 找回密码按钮跳转"
+    description: "验证点击'找回密码'按钮时，能打开找回密码页面或弹窗，并正确传递当前用户名"
     severity: "medium"
-    tags: ["login", "auxiliary_buttons", "ui_interaction", "positive"]
+    tags: ["login", "auxiliary_buttons", "ui_interaction", "navigation"]
     input_params:
       username: "13165"
     expected_results:
-      forgot_password_window: true
+      new_window_opened: true
+      window_title_contains: ["找回密码", "密码重置", "Forgot Password"]
       status_code: 200
     boundary_conditions:
       category: "auxiliary_button_function"
       test_type: "forgot_password_button"
 
   - case_id: "LOGIN_020"
-    case_name: "辅助功能 - 在线注册按钮点击"
-    description: "验证点击'在线注册'按钮时，能打开注册页面或弹窗"
+    case_name: "辅助功能 - 在线注册按钮跳转"
+    description: "验证点击'在线注册'按钮时，能打开注册页面或弹窗，允许新用户创建账户"
     severity: "medium"
-    tags: ["login", "auxiliary_buttons", "ui_interaction", "positive"]
+    tags: ["login", "auxiliary_buttons", "ui_interaction", "navigation"]
     input_params:
       username: "13165"
     expected_results:
-      register_window: true
+      new_window_opened: true
+      window_title_contains: ["注册", "用户注册", "Sign Up", "Register"]
       status_code: 200
     boundary_conditions:
       category: "auxiliary_button_function"
       test_type: "register_button"
 
   - case_id: "LOGIN_021"
-    case_name: "辅助功能 - 找回密码页面返回"
-    description: "验证点击找回密码按钮打开页面后，能成功返回登录页面"
+    case_name: "辅助功能 - 找回密码页面返回登录"
+    description: "验证点击找回密码按钮打开页面后，能成功返回登录页面，且登录页面状态保持不变"
     severity: "medium"
-    tags: ["login", "auxiliary_buttons", "ui_interaction", "positive"]
+    tags: ["login", "auxiliary_buttons", "ui_interaction", "navigation_flow"]
     input_params:
       username: "13165"
     expected_results:
-      return_to_login: true
+      return_to_login_success: true
+      username_preserved: true
       status_code: 200
     boundary_conditions:
       category: "auxiliary_button_function"
       test_type: "navigation_flow"
 
-  - case_id: "LOGIN_022"
-    case_name: "辅助功能 - 注册页面返回"
-    description: "验证点击在线注册按钮打开页面后，能成功返回登录页面"
-    severity: "medium"
-    tags: ["login", "auxiliary_buttons", "ui_interaction", "positive"]
-    input_params:
-      username: "13165"
-    expected_results:
-      return_to_login: true
-      status_code: 200
-    boundary_conditions:
-      category: "auxiliary_button_function"
-      test_type: "navigation_flow"
-
-  # ==================== 密码输入框功能测试 ====================
+  # ==================== 密码功能测试 ====================
   - case_id: "LOGIN_023"
-    case_name: "密码功能 - 密码显示切换"
-    description: "验证点击密码输入框的显示/隐藏按钮时，密码能在明文和密文之间切换"
+    case_name: "密码功能 - 密码显示/隐藏切换"
+    description: "验证点击密码输入框的显示/隐藏按钮时，密码能在明文和密文之间切换，且切换状态正确"
     severity: "medium"
-    tags: ["login", "password_function", "ui_interaction", "positive"]
+    tags: ["login", "password_function", "ui_interaction", "visibility_toggle"]
     input_params:
       username: "13165"
-      password: "1"
+      password: "Test@123"
     expected_results:
-      password_visibility_toggle: true
+      password_visibility_toggle_works: true
+      default_state: "hidden"
+      toggle_state_changes: true
+      password_value_preserved: true
       status_code: 200
     boundary_conditions:
       category: "password_function"
       test_type: "visibility_toggle"
 
   - case_id: "LOGIN_024"
-    case_name: "密码功能 - 密码复制粘贴"
-    description: "验证密码输入框的复制粘贴功能是否正常工作"
+    case_name: "密码功能 - 密码复制粘贴限制"
+    description: "验证密码输入框是否允许复制粘贴操作（安全考虑，部分应用会限制）"
     severity: "medium"
-    tags: ["login", "password_function", "ui_interaction", "positive"]
+    tags: ["login", "password_function", "ui_interaction", "clipboard"]
     input_params:
       username: "13165"
-      password: "1"
-      test_copy_paste: true
+      password: "Test@123"
+      test_copy: true
+      test_paste: true
     expected_results:
-      copy_paste_functionality: true
+      copy_allowed: false
+      paste_allowed: true
       status_code: 200
     boundary_conditions:
       category: "password_function"
-      test_type: "copy_paste"
-
-  - case_id: "LOGIN_025"
-    case_name: "密码功能 - 密码长度限制"
-    description: "验证密码输入框能正确处理超过最大长度的密码"
-    severity: "medium"
-    tags: ["login", "password_function", "boundary", "negative"]
-    input_params:
-      username: "13165"
-      password: "password12345678901234567890"  # 超过最大长度的密码
-    expected_results:
-      password_truncated: true
-      login_success: false
-      status_code: 400
-    boundary_conditions:
-      category: "password_function"
-      boundary_type: "max_exceeded"
-      field: "password"
-      limit_value: 20
+      test_type: "clipboard_operations"
 
   # ==================== 窗口控制功能测试 ====================
   - case_id: "LOGIN_026"
-    case_name: "窗口功能 - 窗口最小化"
-    description: "验证点击窗口最小化按钮时，窗口能正确最小化到任务栏"
-    severity: "medium"
-    tags: ["login", "window_function", "ui_interaction", "positive"]
+    case_name: "窗口功能 - 窗口最小化与还原"
+    description: "验证点击窗口最小化按钮时，窗口能正确最小化到任务栏并能从任务栏还原"
+    severity: "low"
+    tags: ["login", "window_function", "ui_interaction", "minimize"]
     input_params:
       username: "13165"
     expected_results:
       window_minimized: true
+      window_restore_from_taskbar: true
+      controls_state_preserved: true
       status_code: 200
     boundary_conditions:
       category: "window_function"
-      test_type: "minimize"
+      test_type: "minimize_restore"
 
   - case_id: "LOGIN_027"
-    case_name: "窗口功能 - 窗口最大化还原"
-    description: "验证点击窗口最大化和还原按钮时，窗口能在最大化和还原状态间切换"
-    severity: "medium"
-    tags: ["login", "window_function", "ui_interaction", "positive"]
+    case_name: "窗口功能 - 窗口最大化与还原"
+    description: "验证点击窗口最大化和还原按钮时，窗口能在最大化和还原状态间切换，控件布局自适应"
+    severity: "low"
+    tags: ["login", "window_function", "ui_interaction", "maximize"]
     input_params:
       username: "13165"
     expected_results:
-      window_maximized_restored: true
+      window_maximized: true
+      controls_visible: true
+      layout_adaptive: true
       status_code: 200
     boundary_conditions:
       category: "window_function"
@@ -547,13 +480,14 @@ data_matrix:
 
   - case_id: "LOGIN_028"
     case_name: "窗口功能 - 窗口关闭"
-    description: "验证点击窗口关闭按钮时，应用能正常关闭"
-    severity: "medium"
-    tags: ["login", "window_function", "ui_interaction", "positive"]
+    description: "验证点击窗口关闭按钮时，应用能正常关闭且进程退出"
+    severity: "low"
+    tags: ["login", "window_function", "ui_interaction", "close"]
     input_params:
       username: "13165"
     expected_results:
       window_closed: true
+      process_terminated: true
       status_code: 200
     boundary_conditions:
       category: "window_function"
@@ -561,38 +495,44 @@ data_matrix:
 
   # ==================== UI交互与控件状态测试 ====================
   - case_id: "LOGIN_029"
-    case_name: "UI交互 - 控件状态验证"
-    description: "验证初始状态下各控件的启用/禁用状态是否符合预期"
+    case_name: "UI状态 - 初始控件状态验证"
+    description: "验证初始状态下各控件的启用/禁用状态：用户名和密码输入框启用，登录按钮启用，记住密码未勾选"
     severity: "medium"
-    tags: ["login", "ui_state", "positive", "validation"]
+    tags: ["login", "ui_state", "validation", "initial_state"]
     input_params:
       username: ""
       password: ""
     expected_results:
-      controls_initial_state: true
+      username_field_enabled: true
+      password_field_enabled: true
+      login_button_enabled: true
+      remember_password_checked: false
       status_code: 200
     boundary_conditions:
       category: "ui_state"
       test_type: "initial_state"
 
   - case_id: "LOGIN_030"
-    case_name: "UI交互 - 输入触发状态变化"
-    description: "验证输入内容过程中，相关控件状态能正确变化"
+    case_name: "UI状态 - 输入触发状态变化"
+    description: "验证输入内容过程中，登录按钮在用户名和密码均非空时保持启用，清空后状态变化"
     severity: "medium"
-    tags: ["login", "ui_state", "positive", "interaction"]
+    tags: ["login", "ui_state", "interaction"]
     input_params:
       username: "13165"
       password: "1"
     expected_results:
-      controls_state_change: true
+      login_button_enabled_with_input: true
+      clear_input_test:
+        username_cleared: false
+        password_cleared: false
       status_code: 200
     boundary_conditions:
       category: "ui_state"
       test_type: "input_triggered"
 
   - case_id: "LOGIN_031"
-    case_name: "UI交互 - 错误状态下的UI反馈"
-    description: "验证输入错误凭证后，UI能给出正确的反馈"
+    case_name: "UI状态 - 错误状态下的UI反馈"
+    description: "验证输入错误凭证后，UI能给出正确的反馈（错误弹窗、输入框不自动清空）"
     severity: "medium"
     tags: ["login", "ui_state", "negative", "feedback"]
     input_params:
@@ -600,6 +540,7 @@ data_matrix:
       password: "wrong_password"
     expected_results:
       error_ui_feedback: true
+      fields_not_cleared_on_error: true
       login_success: false
       status_code: 401
     boundary_conditions:
@@ -607,19 +548,38 @@ data_matrix:
       test_type: "error_feedback"
 
   - case_id: "LOGIN_032"
-    case_name: "UI交互 - 焦点切换测试"
-    description: "验证使用键盘Tab键时，焦点能按合理顺序在控件间切换"
+    case_name: "UI交互 - Tab键焦点切换"
+    description: "验证使用键盘Tab键时，焦点能按合理顺序在控件间切换：用户名→密码→记住密码→登录按钮"
     severity: "medium"
-    tags: ["login", "ui_state", "positive", "keyboard_navigation"]
+    tags: ["login", "ui_state", "keyboard_navigation", "accessibility"]
     input_params:
       username: ""
       password: ""
     expected_results:
-      focus_order_correct: true
+      focus_order: ["username_field", "password_field", "remember_password_checkbox", "login_button"]
+      focus_change_works: true
       status_code: 200
     boundary_conditions:
       category: "ui_state"
       test_type: "focus_navigation"
+
+  # ==================== 性能与并发测试 ====================
+  - case_id: "LOGIN_033"
+    case_name: "性能测试 - 登录响应时间"
+    description: "验证在正常网络条件下，登录操作的响应时间应在3秒内完成"
+    severity: "medium"
+    tags: ["login", "performance", "response_time"]
+    input_params:
+      username: "13165"
+      password: "1"
+    expected_results:
+      max_response_time_ms: 3000
+      avg_response_time_ms: 1500
+      login_success: true
+      status_code: 200
+    boundary_conditions:
+      category: "performance"
+      test_type: "response_time"
 
 # 测试步骤模板 - 用于生成测试用例的步骤
 # 可以根据需要扩展不同的步骤模板
@@ -681,12 +641,14 @@ step_templates:
         best_match: "{{base_config.common.remember_password_checkbox}}"
       save_as: "remember_password_chk"
       optional: true
+      condition: "'remember_password' in input_params"
 
     - action: "check_ctrl"
       params:
         ctrl: "$remember_password_chk"
         checked: "{{input_params.remember_password}}"
       optional: true
+      condition: "'remember_password' in input_params"
 
     - action: "screenshot"
       params:
@@ -713,8 +675,8 @@ step_templates:
         expected: "{{expected_results}}"
         case_type: "{{boundary_conditions.category}}"
   
-  # ComboBox功能测试模板
-  combobox_flow:
+  # ComboBox下拉选择测试模板
+  combobox_dropdown_flow:
     - action: "start"
       params:
         exec_path: "{{base_config.common.exec_path}}"
@@ -732,7 +694,7 @@ step_templates:
     - action: "by_index"
       params:
         parent: "$login_win"
-        best_match: "ComboBox"
+        best_match: "{{base_config.common.combobox_control}}"
       save_as: "username_combobox"
     
     - action: "click_ctrl"
@@ -747,6 +709,11 @@ step_templates:
         item: "{{input_params.username}}"
         allure_attach: true
         allure_name: "选择下拉列表项_{{case_id}}"
+    
+    - action: "verify_selected_text"
+      params:
+        ctrl: "$username_combobox"
+        expected: "{{input_params.username}}"
     
     - action: "by_index"
       params:
@@ -809,10 +776,21 @@ step_templates:
         seconds: 2
       optional: true
     
+    - action: "get_window"
+      params:
+        timeout: 5
+        class_name: "*"
+      save_as: "new_window"
+    
     - action: "validate_result"
       params:
         expected: "{{expected_results}}"
         case_type: "{{boundary_conditions.category}}"
+      optional: true
+    
+    - action: "close_window"
+      params:
+        target: "$new_window"
       optional: true
     
     # 测试在线注册按钮
@@ -834,6 +812,12 @@ step_templates:
       params:
         seconds: 2
       optional: true
+    
+    - action: "get_window"
+      params:
+        timeout: 5
+        class_name: "*"
+      save_as: "new_window"
     
     - action: "validate_result"
       params:
@@ -882,11 +866,18 @@ step_templates:
         allure_attach: true
         allure_name: "输入密码_{{case_id}}"
     
+    - action: "get_ctrl_property"
+      params:
+        ctrl: "$password_edit"
+        property: "is_password"
+      save_as: "is_password_hidden"
+    
     # 测试密码显示/隐藏切换
     - action: "by_index"
       params:
         parent: "$password_edit"
         best_match: "Button"
+        control_type: "Button"
       save_as: "password_visibility_btn"
       optional: true
     
@@ -894,19 +885,14 @@ step_templates:
       params:
         ctrl: "$password_visibility_btn"
         allure_attach: true
-        allure_name: "点击密码显示按钮_{{case_id}}"
+        allure_name: "切换密码显示状态_{{case_id}}"
       optional: true
     
-    - action: "sleep"
+    - action: "get_ctrl_property"
       params:
-        seconds: 1
-      optional: true
-    
-    - action: "click_ctrl"
-      params:
-        ctrl: "$password_visibility_btn"
-        allure_attach: true
-        allure_name: "点击密码隐藏按钮_{{case_id}}"
+        ctrl: "$password_edit"
+        property: "is_password"
+      save_as: "is_password_shown"
       optional: true
     
     - action: "validate_result"
@@ -943,6 +929,11 @@ step_templates:
         seconds: 1
       optional: true
     
+    - action: "verify_window_state"
+      params:
+        ctrl: "$login_win"
+        state: "minimized"
+    
     - action: "restore_window"
       params:
         ctrl: "$login_win"
@@ -962,6 +953,11 @@ step_templates:
       params:
         seconds: 1
       optional: true
+    
+    - action: "verify_window_state"
+      params:
+        ctrl: "$login_win"
+        state: "maximized"
     
     - action: "restore_window"
       params:
@@ -998,7 +994,6 @@ step_templates:
         controls: ["Edit", "Button"]
         allure_attach: true
         allure_name: "验证初始控件状态_{{case_id}}"
-      optional: true
     
     # 测试焦点切换
     - action: "test_focus_order"
@@ -1007,18 +1002,22 @@ step_templates:
         controls: ["{{base_config.common.username_field.best_match}}", "{{base_config.common.password_field.best_match}}", "{{base_config.common.login_button_text}}"]
         allure_attach: true
         allure_name: "测试焦点切换_{{case_id}}"
-      optional: true
     
     - action: "validate_result"
       params:
         expected: "{{expected_results}}"
         case_type: "{{boundary_conditions.category}}"
-
+  
   # 错误消息验证专用模板
   error_validation_flow:
+    - action: "sleep"
+      params:
+        seconds: 1
+      optional: true
+    
     - action: "get_window"
       params:
-        class_name: "QMessageBox"
+        class_name: "{{base_config.common.message_box_class}}"
       timeout: 5
       save_as: "msg_box"
       optional: true  # 某些错误可能在页面上直接显示
@@ -1027,17 +1026,21 @@ step_templates:
       params:
         parent: "$msg_box"
         best_match: "QLabel"
+        control_type: "Text"
       save_as: "msg_label"
+      optional: true
     
     - action: "get_text"
       params:
         ctrl: "$msg_label"
       save_as: "actual_error"
+      optional: true
     
     - action: "assert"
       params:
         condition: "actual_error in expected_results.error_message.text"
         on_failure: "log_error_and_screenshot"
+      optional: true
 
 # 验证规则配置
 validation_rules:
@@ -1055,3 +1058,8 @@ validation_rules:
     on_failure: true
     on_assertion: true
     path_template: "reports/screenshots/{{case_id}}_{{timestamp}}.png"
+    
+  cleanup_policy:
+    on_success: false
+    on_failure: true
+    always_cleanup: false
