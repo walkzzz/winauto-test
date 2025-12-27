@@ -43,6 +43,11 @@ _PYWIN_EXCEPTIONS = (
 def dump_ctrl_tree(func):
     @functools.wraps(func)
     def _wrapper(*args, **kwargs):
+        from contextlib import redirect_stdout
+        import io
+        from datetime import datetime
+        import os
+        
         ctrl = func(*args, **kwargs)
         if isinstance(ctrl, (WindowSpecification, BaseWrapper)):
             # 获取窗口名称
@@ -55,8 +60,37 @@ def dump_ctrl_tree(func):
             except Exception as e:
                 window_name = "(获取窗口名称失败)"
             
+            # 生成唯一的文件名，使用窗口名称和时间戳
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
+            # 清理窗口名称中的非法字符，用于文件名
+            safe_window_name = "".join([c if c.isalnum() or c in ("_", "-", " ") else "_" for c in window_name])
+            filename = f"控件树_{safe_window_name}_{timestamp}.md"
+            
+            # 确保reports目录存在
+            os.makedirs("reports", exist_ok=True)
+            file_path = os.path.join("reports", filename)
+            
+            # 捕获控件树输出
+            output = io.StringIO()
+            with redirect_stdout(output):
+                print(f"# 控件树报告 - {window_name}")
+                print(f"> 生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+                print(f"> 来源函数: {func.__name__}")
+                print(f"> 窗口名称: {window_name}")
+                print(f"> 控件类型: {type(ctrl).__name__}")
+                print("\n---\n")
+                print("```")
+                ctrl.print_control_identifiers()
+                print("```")
+            
+            # 保存到Markdown文件
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(output.getvalue())
+            
+            # 同时打印到控制台
             print(f"\n>>> 控件树来自 {func.__name__} - 窗口: {window_name} >>>")
             ctrl.print_control_identifiers()
+            print(f"\n>>> 控件树已保存到: {file_path} >>>")
         else:
             print(f"[W] {func.__name__} 返回的不是控件对象，跳过打印")
         return ctrl
@@ -413,7 +447,7 @@ class WinAuto:
             self.logger.error("关闭应用程序失败")
             return False
 
-    def close_window(self, win: Optional[WindowSpecification] = None) -> bool:
+    def close_window(self, win: Optional[Union[WindowSpecification, BaseWrapper]] = None) -> bool:
         """
         关闭指定窗口
         
@@ -434,7 +468,7 @@ class WinAuto:
             self.logger.error("关闭窗口失败")
             return False
 
-    def maximize_window(self, win: Optional[WindowSpecification] = None) -> bool:
+    def maximize_window(self, win: Optional[Union[WindowSpecification, BaseWrapper]] = None) -> bool:
         """
         最大化窗口
         
@@ -449,7 +483,7 @@ class WinAuto:
             return False
         return _safe_call(win, "maximize") is not False
 
-    def minimize_window(self, win: Optional[WindowSpecification] = None) -> bool:
+    def minimize_window(self, win: Optional[Union[WindowSpecification, BaseWrapper]] = None) -> bool:
         """
         最小化窗口
         
@@ -464,7 +498,7 @@ class WinAuto:
             return False
         return _safe_call(win, "minimize") is not False
 
-    def restore_window(self, win: Optional[WindowSpecification] = None) -> bool:
+    def restore_window(self, win: Optional[Union[WindowSpecification, BaseWrapper]] = None) -> bool:
         """
         恢复窗口（从最小化/最大化状态恢复到正常状态）
         
@@ -478,6 +512,94 @@ class WinAuto:
             self.logger.error("restore_window: 未提供窗口对象")
             return False
         return _safe_call(win, "restore") is not False
+
+    def sleep(self, seconds: float) -> None:
+        """
+        线程休眠指定时间
+        
+        参数:
+            seconds: 休眠时间（秒）
+        """
+        time.sleep(seconds)
+        self.logger.info(f"已休眠 {seconds} 秒")
+
+    def check_ctrl(self, ctrl: Optional[BaseWrapper], checked: bool) -> bool:
+        """
+        检查或取消检查复选框
+        
+        参数:
+            ctrl: 复选框控件对象
+            checked: True 表示检查，False 表示取消检查
+            
+        返回:
+            操作成功返回 True，失败返回 False
+        """
+        if ctrl is None:
+            self.logger.error("check_ctrl: 未提供控件对象")
+            return False
+        try:
+            current_state = ctrl.get_check_state()
+            if current_state != checked:
+                ctrl.click()
+            self.logger.info(f"复选框状态已设置为 {'checked' if checked else 'unchecked'}")
+            return True
+        except _PYWIN_EXCEPTIONS:
+            self.logger.error("设置复选框状态失败")
+            return False
+
+    def check_ctrl_state(self, parent: BaseWrapper, controls: list) -> bool:
+        """
+        检查控件状态
+        
+        参数:
+            parent: 父控件对象
+            controls: 要检查的控件类型列表
+            
+        返回:
+            检查成功返回 True，失败返回 False
+        """
+        try:
+            for ctrl_type in controls:
+                ctrl = parent.child_window(control_type=ctrl_type)
+                if not ctrl.exists():
+                    self.logger.warning(f"控件类型 {ctrl_type} 不存在")
+                    continue
+                is_enabled = ctrl.is_enabled()
+                is_visible = ctrl.is_visible()
+                self.logger.info(f"控件类型 {ctrl_type} - 启用: {is_enabled}, 可见: {is_visible}")
+            return True
+        except _PYWIN_EXCEPTIONS:
+            self.logger.error("检查控件状态失败")
+            return False
+
+    def test_focus_order(self, parent: BaseWrapper, controls: list) -> bool:
+        """
+        测试焦点切换顺序
+        
+        参数:
+            parent: 父控件对象
+            controls: 预期的焦点顺序列表
+            
+        返回:
+            测试成功返回 True，失败返回 False
+        """
+        try:
+            # 模拟Tab键按下，检查焦点顺序
+            parent.set_focus()
+            for i, ctrl_name in enumerate(controls):
+                # 获取当前具有焦点的控件
+                focused_ctrl = parent.get_focus_control()
+                if focused_ctrl:
+                    ctrl_text = focused_ctrl.window_text()
+                    ctrl_class = focused_ctrl.friendly_class_name()
+                    self.logger.info(f"当前焦点控件: {ctrl_text} ({ctrl_class})")
+                # 按下Tab键
+                parent.type_keys('{TAB}')
+                time.sleep(0.1)
+            return True
+        except _PYWIN_EXCEPTIONS:
+            self.logger.error("测试焦点顺序失败")
+            return False
 
     def set_focus(self, win: Optional[WindowSpecification] = None) -> bool:
         """
