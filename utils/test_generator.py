@@ -5,17 +5,41 @@ import allure
 from winauto_helper import WinAuto
 
 class YamlTestGenerator:
-    """动态测试生成器 - 利用反射执行 WinAuto 方法"""
+    """
+    动态测试生成器 - 利用反射执行 WinAuto 方法，支持 YAML 配置驱动的测试生成
+    
+    该类负责：
+    - 解析 YAML 测试步骤
+    - 反射调用 WinAuto 方法
+    - 管理测试上下文和变量
+    - 集成 Allure 报告
+    - 处理测试步骤的执行结果
+    """
     
     def __init__(self):
+        """
+        初始化测试生成器
+        
+        属性:
+            winauto: WinAuto 实例，用于执行自动化操作
+            context: 测试上下文，用于存储和管理测试过程中的变量
+        """
         self.winauto = None
         self.context = {}  # 存储 save_as 的变量
     
     def execute_step(self, step: Dict[str, Any]) -> Any:
         """
-        执行单个步骤 - 核心反射逻辑
-        :param step: 步骤配置
-        :return: 执行结果
+        执行单个测试步骤 - 核心反射逻辑
+        
+        参数:
+            step: 步骤配置字典，包含 action、params、save_as 等字段
+            
+        返回:
+            执行结果
+            
+        异常:
+            AttributeError: 当 WinAuto 类不存在指定方法时
+            RuntimeError: 当步骤执行失败时
         """
         action = step.get("action")
         params = step.get("params", {})
@@ -275,6 +299,14 @@ class YamlTestGenerator:
         return resolved
     
     def setup_winauto(self, exec_path: str = ""):
-        """初始化 WinAuto 实例"""
+        """
+        初始化 WinAuto 实例
+        
+        参数:
+            exec_path: 应用程序执行路径，可选
+            
+        说明:
+            该方法创建并初始化一个 WinAuto 实例，并清空测试上下文。
+        """
         self.winauto = WinAuto(exec_path=exec_path)
         self.context.clear()
